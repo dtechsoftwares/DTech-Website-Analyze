@@ -1,0 +1,5 @@
+{
+  "name": "DTech Website Analyzer",
+  "description": "An intelligent web analyzer that scans uploaded project folders to reverse-engineer the tech stack and provide step-by-step build reconstruction guides using Gemini AI.",
+  "requestFramePermissions": []
+}
