@@ -1,31 +1,27 @@
+
 export interface FileNode {
   name: string;
   path: string;
   type: 'file' | 'folder';
-  content?: string; // Only populated for text files we want to analyze
+  content?: string;
   size: number;
   children?: FileNode[];
 }
 
-export interface BuildStep {
-  step: string;
-  description: string;
-  tools: string[];
-}
-
-export interface LanguageStat {
-  language: string;
-  percentage: number;
+export interface ClonedFile {
+  name: string;
+  language: 'html' | 'css' | 'javascript' | 'json' | 'typescript';
+  content: string;
 }
 
 export interface AnalysisResult {
-  techStack: string[];
-  architecture: string;
-  confidenceScore: number;
-  summary: string;
-  buildSteps: BuildStep[];
-  fileBreakdown: LanguageStat[];
-  keyObservations: string[];
+  // Legacy fields for local analysis
+  techStack?: string[];
+  summary?: string;
+  
+  // New Cloning Fields
+  clonedFiles: ClonedFile[];
+  verificationLinks?: string[]; // URLs used for grounding
 }
 
 export enum AnalysisStatus {

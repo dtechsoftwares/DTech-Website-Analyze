@@ -1,16 +1,19 @@
+
 import React, { useState, useRef, useCallback } from 'react';
-import { Upload, FolderOpen, Loader2, Sparkles, Terminal } from 'lucide-react';
+import { Upload, FolderOpen, Loader2, Sparkles, Terminal, Globe, ArrowRight, Search } from 'lucide-react';
 import { FileNode, AnalysisResult, AnalysisStatus } from './types';
-import { analyzeProjectStructure } from './services/geminiService';
+import { analyzeProjectStructure, analyzeRemoteSite } from './services/geminiService';
 import { FileTree } from './components/FileTree';
 import { AnalysisDashboard } from './components/AnalysisDashboard';
 import { SplashScreen } from './components/SplashScreen';
+import { TechLoader } from './components/TechLoader';
 
 const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [status, setStatus] = useState<AnalysisStatus>(AnalysisStatus.IDLE);
   const [files, setFiles] = useState<FileNode[]>([]);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [urlInput, setUrlInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper to process FileList into a tree structure
@@ -120,6 +123,31 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUrlSubmit = async () => {
+    if (!urlInput.trim()) return;
+    
+    // Create dummy nodes for the visualizer
+    const dummyNodes: FileNode[] = [
+      { name: 'index.html', path: 'index.html', type: 'file', size: 1024 },
+      { name: 'styles.css', path: 'styles.css', type: 'file', size: 1024 },
+      { name: 'app.js', path: 'app.js', type: 'file', size: 1024 },
+      { name: 'assets', path: 'assets', type: 'folder', size: 0, children: [
+         { name: 'logo.png', path: 'assets/logo.png', type: 'file', size: 0 } 
+      ]}
+    ];
+    setFiles(dummyNodes);
+    
+    setStatus(AnalysisStatus.ANALYZING);
+    try {
+      const result = await analyzeRemoteSite(urlInput);
+      setAnalysisResult(result);
+      setStatus(AnalysisStatus.COMPLETED);
+    } catch (error) {
+      console.error(error);
+      setStatus(AnalysisStatus.ERROR);
+    }
+  };
+
   const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       processFiles(e.target.files);
@@ -156,6 +184,7 @@ const App: React.FC = () => {
                    setStatus(AnalysisStatus.IDLE);
                    setFiles([]);
                    setAnalysisResult(null);
+                   setUrlInput('');
                  }}
                  className="text-xs font-medium text-slate-400 hover:text-white transition-colors"
                >
@@ -185,55 +214,82 @@ const App: React.FC = () => {
         {/* Main Workspace */}
         <div className="md:col-span-9 flex flex-col min-h-[calc(100vh-140px)]">
           
-          {/* IDLE STATE: Upload Area */}
+          {/* IDLE STATE: Selection Mode */}
           {status === AnalysisStatus.IDLE && (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div 
-                className="w-full max-w-2xl border-2 border-dashed border-slate-700 hover:border-brand-500/50 hover:bg-slate-800/20 rounded-2xl p-12 text-center transition-all duration-300 group cursor-pointer"
-                onClick={triggerFileInput}
-              >
-                <div className="mb-6 inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-900 group-hover:bg-brand-500/10 group-hover:scale-110 transition-all duration-500">
-                  <Upload className="w-10 h-10 text-slate-500 group-hover:text-brand-500" />
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-3">Upload Project Folder</h2>
-                <p className="text-slate-400 mb-8 max-w-md mx-auto">
-                  Select a cloned website folder (e.g. WordPress export, React project, or raw HTML). We'll analyze the structure and tell you how it was built.
-                </p>
-                <button 
-                  className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-lg font-medium shadow-lg shadow-brand-500/20 transition-all active:scale-95 flex items-center gap-2 mx-auto"
-                >
-                  <FolderOpen className="w-5 h-5" />
-                  Select Directory
-                </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFolderSelect}
-                  className="hidden"
-                  /* @ts-ignore: webkitdirectory is non-standard but supported in most browsers */
-                  webkitdirectory=""
-                  directory=""
-                  multiple
-                />
-              </div>
+            <div className="flex-1 flex flex-col justify-center p-4 md:p-8 animate-in fade-in zoom-in duration-500">
+               <div className="text-center mb-10">
+                 <h2 className="text-3xl font-bold text-white mb-3">Begin Analysis</h2>
+                 <p className="text-slate-400">Choose how you want to reverse engineer your project</p>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full">
+                  {/* Option 1: Upload */}
+                  <div 
+                    onClick={triggerFileInput}
+                    className="relative group bg-dark-900/50 hover:bg-dark-900 border border-slate-700 hover:border-brand-500 rounded-2xl p-8 flex flex-col items-center text-center cursor-pointer transition-all duration-300 shadow-lg hover:shadow-brand-500/10"
+                  >
+                     <div className="mb-6 inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-900 group-hover:bg-brand-500/10 group-hover:scale-110 transition-all duration-500">
+                        <Upload className="w-10 h-10 text-slate-500 group-hover:text-brand-500" />
+                     </div>
+                     <h3 className="text-xl font-bold text-white mb-2">Upload Source Code</h3>
+                     <p className="text-sm text-slate-400 mb-6">
+                       Scan local files (React, WP, HTML) to generate a build guide.
+                     </p>
+                     <div className="text-brand-400 text-sm font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                       Select Folder <ArrowRight size={14} />
+                     </div>
+                     <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFolderSelect}
+                        className="hidden"
+                        /* @ts-ignore: webkitdirectory is non-standard */
+                        webkitdirectory=""
+                        directory=""
+                        multiple
+                      />
+                  </div>
+
+                  {/* Option 2: URL */}
+                  <div className="relative group bg-dark-900/50 hover:bg-dark-900 border border-slate-700 hover:border-purple-500 rounded-2xl p-8 flex flex-col items-center text-center transition-all duration-300 shadow-lg hover:shadow-purple-500/10">
+                     <div className="mb-6 inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-900 group-hover:bg-purple-500/10 group-hover:scale-110 transition-all duration-500">
+                        <Globe className="w-10 h-10 text-slate-500 group-hover:text-purple-500" />
+                     </div>
+                     <h3 className="text-xl font-bold text-white mb-2">Clone from URL</h3>
+                     <p className="text-sm text-slate-400 mb-6">
+                       Enter a website link to simulate a reverse engineering guide.
+                     </p>
+                     
+                     <div className="w-full max-w-xs relative" onClick={(e) => e.stopPropagation()}>
+                       <input 
+                         type="text" 
+                         value={urlInput}
+                         onChange={(e) => setUrlInput(e.target.value)}
+                         placeholder="https://example.com"
+                         className="w-full bg-black/30 border border-slate-600 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all"
+                         onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
+                       />
+                       <button 
+                         onClick={handleUrlSubmit}
+                         disabled={!urlInput}
+                         className="absolute right-1 top-1 bottom-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 rounded-md transition-colors"
+                       >
+                         <Search size={14} />
+                       </button>
+                     </div>
+                  </div>
+               </div>
             </div>
           )}
 
           {/* LOADING STATES */}
           {(status === AnalysisStatus.READING_FILES || status === AnalysisStatus.ANALYZING) && (
-            <div className="flex-1 flex flex-col items-center justify-center p-12">
-               <div className="relative">
-                 <div className="absolute inset-0 bg-brand-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-                 <Loader2 className="w-16 h-16 text-brand-500 animate-spin relative z-10" />
-               </div>
-               <h2 className="text-xl font-semibold text-white mt-8 mb-2">
-                 {status === AnalysisStatus.READING_FILES ? "Reading File Structure..." : "Gemini is Analyzing..."}
-               </h2>
-               <p className="text-slate-400 text-sm max-w-md text-center">
-                 {status === AnalysisStatus.READING_FILES 
-                   ? "Scanning directory for patterns and key configuration files."
-                   : "Reverse engineering tech stack, identifying frameworks, and generating reconstruction steps."}
-               </p>
+            <div className="flex-1 flex flex-col items-center justify-center w-full">
+              <TechLoader 
+                files={files} 
+                status={status === AnalysisStatus.READING_FILES ? 'READING' : 'ANALYZING'} 
+                targetUrl={urlInput}
+              />
             </div>
           )}
 
